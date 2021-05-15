@@ -40,12 +40,10 @@ ruby main.rb
 
 2. Talk to the bot on Telegram with these commands.
 
-```
-/start - Say hello
-/sub <keyword> - Subscribe to the search results of the given keyword
-/unsub <keyword> - Unsubscribe to the given keyword
-/list - List your subscriptions
-```
+- `/start`: Say hello
+- `/sub`: Subscribe to the search results of a keyword
+- `/unsub`: Unsubscribe to a keyword
+- `/list`: List your subscriptions
 
 ## Contributing
 

@@ -37,20 +37,12 @@ class Bot
           case msg.text
           when '/start'
             reply_to(msg, 'hello, world')
-          when /^\/sub .+/
-            query = msg.text[/^\/sub (.+)$/, 1]
-            if sub(query, msg.chat.id, msg.from.username)
-              reply_to(msg, "Subscribed to \"#{query}\" successfully.")
-            else
-              reply_to(msg, "You have already subscribed to \"#{query}\".")
-            end
-          when /^\/unsub .+/
-            query = msg.text[/^\/unsub (.+)$/, 1]
-            if unsub(msg.chat.id, query)
-              reply_to(msg, "Unsubscribed to \"#{query}\" successfully.")
-            else
-              reply_to(msg, "Subscription not found.")
-            end
+          when '/sub'
+            reply_to( msg, 'Please enter the keyword you would like to subscribe.',
+              reply_markup: Telegram::Bot::Types::ForceReply.new(force_reply: true))
+          when '/unsub'
+            reply_to( msg, 'Please enter the keyword you would like to unsubscribe.',
+              reply_markup: Telegram::Bot::Types::ForceReply.new(force_reply: true))
           when '/list'
             if (user_subs = subs[msg.chat.id]) && !user_subs.empty?
               reply_to(msg, "You currently subscribe to\n#{user_subs.keys.join("\n")}")
@@ -59,6 +51,23 @@ class Bot
             end
           when '/update'
             update(false)
+          else
+            if replied = msg.reply_to_message
+              case replied.text
+              when 'Please enter the keyword you would like to subscribe.'
+                if sub(msg.text, msg.chat.id, msg.from.username)
+                  reply_to(msg, "Subscribed to \"#{msg.text}\" successfully.")
+                else
+                  reply_to(msg, "You have already subscribed to \"#{msg.text}\".")
+                end
+              when 'Please enter the keyword you would like to unsubscribe.'
+                if unsub(msg.text, msg.chat.id)
+                  reply_to(msg, "Unsubscribed to \"#{msg.text}\" successfully.")
+                else
+                  reply_to(msg, "Subscription not found.")
+                end
+              end
+            end
           end
         when Telegram::Bot::Types::CallbackQuery
           begin
@@ -80,7 +89,7 @@ class Bot
                 text: "Are you sure to clear the \"#{query}\" playlist?",
                 reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(inline_keyboard: [[
                   Telegram::Bot::Types::InlineKeyboardButton.new(text: 'Clear', callback_data: "force_clear #{query}"),
-                  Telegram::Bot::Types::InlineKeyboardButton.new(text: 'Cancel', callback_data: 'cancel')
+                  Telegram::Bot::Types::InlineKeyboardButton.new(text: 'No', callback_data: 'no_clear')
                 ]])
               )
             when /^force_clear .+/
@@ -92,9 +101,10 @@ class Bot
                 reply_markup: nil
               )
               subs[msg.message.chat.id][query] = youtube.clear_playlist(subs[msg.message.chat.id][query], msg.from.username, query)
-            when 'cancel'
+            when 'no_clear'
               bot.api.delete_message(chat_id: msg.message.chat.id, message_id: msg.message.message_id)
             end
+            bot.api.answer_callback_query(callback_query_id: msg.id)
           rescue Telegram::Bot::Exceptions::ResponseError => e
             log e.message
           rescue NoMethodError
@@ -125,7 +135,7 @@ class Bot
   def set_update
     Thread.new do
       loop do
-        sleep 1200
+        sleep 1800
         update
       end
     end
@@ -179,7 +189,7 @@ class Bot
     true
   end
 
-  def unsub(chat_id, query)
+  def unsub(query, chat_id)
     subs[chat_id] ||= {}
     if playlist_id = subs[chat_id][query]
       youtube.delete_playlist(playlist_id)
@@ -209,7 +219,7 @@ class Bot
     end
   end
 
-  def reply_to(msg, text)
-    bot.api.send_message(chat_id: msg.chat.id, text: text, reply_to_message_id: msg.message_id)
+  def reply_to(msg, text, **options)
+    bot.api.send_message(chat_id: msg.chat.id, text: text, reply_to_message_id: msg.message_id, **options)
   end
 end
