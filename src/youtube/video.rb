@@ -11,6 +11,14 @@ class YouTube::Video
     "https://youtu.be/#{id}"
   end
 
+  def to_json(*args)
+    {
+      id: id,
+      title: title,
+      channel: channel
+    }.to_json(*args)
+  end
+
   def eql?(other)
     id == other.id
   end

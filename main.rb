@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 require 'rubygems'
 require 'bundler/setup'
+require 'json'
 require 'telegram/bot'
 require 'googleauth'
 require 'googleauth/stores/file_token_store'
