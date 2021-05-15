@@ -1,0 +1,5 @@
+source 'https://rubygems.org'
+gem 'telegram-bot-ruby'
+gem 'google-apis-youtube_v3'
+gem 'googleauth'
+gem 'activesupport'
