@@ -29,7 +29,7 @@ class Bot
     Telegram::Bot::Client.run(Config::TELEGRAM_TOKEN) do |bot|
       @bot = bot
       set_update
-      log "Bot started."
+      log 'Bot started.'
       bot.listen do |msg|
         log msg
         case msg
@@ -38,19 +38,19 @@ class Bot
           when '/start'
             reply_to(msg, 'hello, world')
           when '/sub'
-            reply_to( msg, 'Please enter the keyword you would like to subscribe.',
-              reply_markup: Telegram::Bot::Types::ForceReply.new(force_reply: true))
+            reply_to(msg, 'Please enter the keyword you would like to subscribe.',
+                     reply_markup: Telegram::Bot::Types::ForceReply.new(force_reply: true))
           when '/unsub'
-            reply_to( msg, 'Please enter the keyword you would like to unsubscribe.',
-              reply_markup: Telegram::Bot::Types::ForceReply.new(force_reply: true))
+            reply_to(msg, 'Please enter the keyword you would like to unsubscribe.',
+                     reply_markup: Telegram::Bot::Types::ForceReply.new(force_reply: true))
           when '/list'
             if (user_subs = subs[msg.chat.id]) && !user_subs.empty?
               reply_to(msg, "You currently subscribe to\n#{user_subs.keys.join("\n")}")
             else
-              reply_to(msg, "Subscription not found.")
+              reply_to(msg, 'Subscription not found.')
             end
           when '/update'
-            update(false)
+            update(clear: false)
           else
             if replied = msg.reply_to_message
               case replied.text
@@ -64,7 +64,7 @@ class Bot
                 if unsub(msg.text, msg.chat.id)
                   reply_to(msg, "Unsubscribed to \"#{msg.text}\" successfully.")
                 else
-                  reply_to(msg, "Subscription not found.")
+                  reply_to(msg, 'Subscription not found.')
                 end
               end
             end
@@ -87,10 +87,16 @@ class Bot
               bot.api.send_message(
                 chat_id: msg.message.chat.id,
                 text: "Are you sure to clear the \"#{query}\" playlist?",
-                reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(inline_keyboard: [[
-                  Telegram::Bot::Types::InlineKeyboardButton.new(text: 'Clear', callback_data: "force_clear #{query}"),
-                  Telegram::Bot::Types::InlineKeyboardButton.new(text: 'No', callback_data: 'no_clear')
-                ]])
+                reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(
+                  inline_keyboard: [[
+                    Telegram::Bot::Types::InlineKeyboardButton.new(
+                      text: 'Clear', callback_data: "force_clear #{query}"
+                    ),
+                    Telegram::Bot::Types::InlineKeyboardButton.new(
+                      text: 'No', callback_data: 'no_clear'
+                    )
+                  ]]
+                )
               )
             when /^force_clear .+/
               query = msg.data[/^force_clear (.+)$/, 1]
@@ -100,14 +106,13 @@ class Bot
                 text: "The \"#{query}\" playlist has been cleared.",
                 reply_markup: nil
               )
-              subs[msg.message.chat.id][query] = youtube.clear_playlist(subs[msg.message.chat.id][query], msg.from.username, query)
+              subs[msg.message.chat.id][query] =
+                youtube.clear_playlist(subs[msg.message.chat.id][query], msg.from.username, query)
             when 'no_clear'
               bot.api.delete_message(chat_id: msg.message.chat.id, message_id: msg.message.message_id)
             end
             bot.api.answer_callback_query(callback_query_id: msg.id)
-          rescue Telegram::Bot::Exceptions::ResponseError => e
-            log e.message
-          rescue NoMethodError
+          rescue Telegram::Bot::Exceptions::ResponseError, NoMethodError => e
             log e.message
           end
         end
@@ -125,10 +130,16 @@ class Bot
       message_id: cq.message.message_id,
       text: cq.message.text,
       disable_web_page_preview: true,
-      reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(inline_keyboard: [[
-        Telegram::Bot::Types::InlineKeyboardButton.new(text: 'Watch Playlist', url: "https://youtube.com/playlist?list=#{playlist_id}"),
-        Telegram::Bot::Types::InlineKeyboardButton.new(text: 'Clear Playlist', callback_data: "clear #{query}")
-      ]])
+      reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(
+        inline_keyboard: [[
+          Telegram::Bot::Types::InlineKeyboardButton.new(
+            text: 'Watch Playlist', url: "https://youtube.com/playlist?list=#{playlist_id}"
+          ),
+          Telegram::Bot::Types::InlineKeyboardButton.new(
+            text: 'Clear Playlist', callback_data: "clear #{query}"
+          )
+        ]]
+      )
     )
   end
 
@@ -141,7 +152,7 @@ class Bot
     end
   end
 
-  def update(clear = true)
+  def update(clear: true)
     log 'Searching for new videos.'
     queries = subs.values.map(&:keys).flatten.uniq
     @pre_results = new_results if clear
@@ -165,17 +176,22 @@ class Bot
   def notify
     subs.each_pair do |chat_id, user_subs|
       user_subs.each_key do |query|
-        if result = new_results[query]
-          result.each do |video|
-            bot.api.send_message(
-              chat_id: chat_id,
-              text: "#{video.title}\n#{video.channel}\n#{video.url}",
-              reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(inline_keyboard: [[
-                Telegram::Bot::Types::InlineKeyboardButton.new(text: 'Interest', callback_data: "add #{video.id} #{query}"),
-                Telegram::Bot::Types::InlineKeyboardButton.new(text: 'Bye', callback_data: 'discard')
-              ]])
+        next unless result = new_results[query]
+
+        result.each do |video|
+          bot.api.send_message(
+            chat_id: chat_id,
+            text: "#{video.title}\n#{video.channel}\n#{video.url}",
+            reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(
+              inline_keyboard: [[
+                Telegram::Bot::Types::InlineKeyboardButton.new(text: 'Interest',
+                                                               callback_data: "add #{video.id} #{query}"),
+                Telegram::Bot::Types::InlineKeyboardButton.new(
+                  text: 'Bye', callback_data: 'discard'
+                )
+              ]]
             )
-          end
+          )
         end
       end
     end
@@ -183,7 +199,8 @@ class Bot
 
   def sub(query, chat_id, username)
     subs[chat_id] ||= {}
-    return nil if subs[chat_id][query]
+    return false if subs[chat_id][query]
+
     subs[chat_id][query] = youtube.new_playlist(username, query)
     save
     true
@@ -191,20 +208,22 @@ class Bot
 
   def unsub(query, chat_id)
     subs[chat_id] ||= {}
-    if playlist_id = subs[chat_id][query]
-      youtube.delete_playlist(playlist_id)
-      subs[chat_id].delete(query)
-      save
-      true
-    end
+    return false unless playlist_id = subs[chat_id][query]
+
+    youtube.delete_playlist(playlist_id)
+    subs[chat_id].delete(query)
+    save
+    true
   end
 
   def save
     File.open('subscriptions.json', 'w') do |file|
-      JSON.dump({
-        subs: subs,
-        pre_results: pre_results
-      }, file)
+      JSON.dump(
+        {
+          subs: subs,
+          pre_results: pre_results
+        }, file
+      )
     end
   end
 
