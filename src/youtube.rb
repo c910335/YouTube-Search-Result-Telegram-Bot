@@ -58,7 +58,7 @@ class YouTube
   end
 
   def auth
-    user_id = Config::GOOGLE_USER_ID
+    user_id = 'ytsrtb'
     uri = 'urn:ietf:wg:oauth:2.0:oob'
     scope = 'https://www.googleapis.com/auth/youtube.force-ssl'
     client_id = Google::Auth::ClientId.from_file('./client_secret.json')
