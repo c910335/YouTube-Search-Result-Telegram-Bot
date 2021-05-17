@@ -124,23 +124,31 @@ class Bot
     video_id = cq.data[/^add (\S+) .+$/, 1]
     query = cq.data[/^add \S+ (.+)$/, 1]
     playlist_id = subs[cq.message.chat.id][query]
-    youtube.insert_video(playlist_id, video_id)
-    bot.api.edit_message_text(
-      chat_id: cq.message.chat.id,
-      message_id: cq.message.message_id,
-      text: cq.message.text,
-      disable_web_page_preview: true,
-      reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(
-        inline_keyboard: [[
-          Telegram::Bot::Types::InlineKeyboardButton.new(
-            text: 'Watch Playlist', url: "https://youtube.com/playlist?list=#{playlist_id}"
-          ),
-          Telegram::Bot::Types::InlineKeyboardButton.new(
-            text: 'Clear Playlist', callback_data: "clear #{query}"
-          )
-        ]]
+    if youtube.insert_video(playlist_id, video_id)
+      bot.api.edit_message_text(
+        chat_id: cq.message.chat.id,
+        message_id: cq.message.message_id,
+        text: cq.message.text,
+        disable_web_page_preview: true,
+        reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(
+          inline_keyboard: [[
+            Telegram::Bot::Types::InlineKeyboardButton.new(
+              text: 'Watch Playlist', url: "https://youtube.com/playlist?list=#{playlist_id}"
+            ),
+            Telegram::Bot::Types::InlineKeyboardButton.new(
+              text: 'Clear Playlist', callback_data: "clear #{query}"
+            )
+          ]]
+        )
       )
-    )
+    else
+      bot.api.edit_message_text(
+        chat_id: cq.message.chat.id,
+        message_id: cq.message.message_id,
+        text: 'The video has been removed.',
+        reply_markup: nil
+      )
+    end
   end
 
   def set_update

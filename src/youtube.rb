@@ -55,6 +55,9 @@ class YouTube
         }
       )
     )
+  rescue Google::Apis::ClientError => e
+    p e
+    nil
   end
 
   def auth
