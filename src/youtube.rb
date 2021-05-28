@@ -13,7 +13,7 @@ class YouTube
       max_results: 50,
       q: q,
       type: 'video',
-      published_after: DateTime.now - 40.minutes
+      published_after: DateTime.now - 35.minutes
     ).items.map { |video| Video.new(video.id.video_id, video.snippet.title, video.snippet.channel_title) }
   end
 
