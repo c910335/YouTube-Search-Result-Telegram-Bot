@@ -7,13 +7,13 @@ class YouTube
     service.authorization = auth
   end
 
-  def search(q)
+  def search(q, after)
     service.list_searches(
       'snippet',
       max_results: 50,
       q: q,
       type: 'video',
-      published_after: DateTime.now - 35.minutes
+      published_after: after
     ).items.map { |video| Video.new(video.id.video_id, video.snippet.title, video.snippet.channel_title) }
   end
 

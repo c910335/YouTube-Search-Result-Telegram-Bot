@@ -1,5 +1,5 @@
 class Bot
-  attr_reader :bot, :youtube, :subs, :pre_results, :new_results
+  attr_reader :bot, :youtube, :subs, :pre_results, :new_results, :last_time
 
   def self.start
     new.start
@@ -9,18 +9,10 @@ class Bot
     @youtube = YouTube.new
     @subs = {}
     if File.exist?('subscriptions.json')
-      restored = JSON.parse(File.read('subscriptions.json'))
-      restored['subs'].each_key do |id|
-        subs[id.to_i] = restored['subs'][id]
-      end
-      @pre_results = restored['pre_results']
-      pre_results.each_value do |r|
-        r.map! do |v|
-          YouTube::Video.new(v['id'], v['title'], v['channel'])
-        end
-      end
+      restore
     else
       @pre_results = {}
+      @last_time = DateTime.now
     end
     @new_results = {}
   end
@@ -109,17 +101,18 @@ class Bot
                 )
                 subs[msg.message.chat.id][query] =
                   youtube.clear_playlist(subs[msg.message.chat.id][query], msg.from.username, query)
+                save
               when 'no_clear'
                 bot.api.delete_message(chat_id: msg.message.chat.id, message_id: msg.message.message_id)
               end
               bot.api.answer_callback_query(callback_query_id: msg.id)
-            rescue Telegram::Bot::Exceptions::ResponseError, NoMethodError => e
-              log e.message
+            rescue Telegram::Bot::Exceptions::ResponseError, NoMethodError, Signet::AuthorizationError => e
+              log e
             end
           end
         end
       rescue Faraday::ConnectionFailed => e
-        log e.message
+        log e
         retry
       end
     end
@@ -159,8 +152,14 @@ class Bot
   def set_update
     Thread.new do
       loop do
-        sleep 1800
-        update
+        sleep 30
+        next unless DateTime.now >= last_time + Config::SEARCH_PERIOD.minutes
+
+        begin
+          update
+        rescue e
+          log e
+        end
       end
     end
   end
@@ -171,13 +170,14 @@ class Bot
     @pre_results = new_results if clear
     @new_results = {}
     queries.each do |query|
-      result = youtube.search(query)
+      result = youtube.search(query, last_time - 1.minutes)
       result -= pre_results[query] if pre_results.include?(query)
       new_results[query] = result
       unless result.empty?
         log "Found #{result.size} video#{result.size > 1 ? 's' : ''} for \"#{query}\"."
       end
     end
+    @last_time = DateTime.now
     new_results.each_pair do |query, result|
       pre_results[query] ||= []
       pre_results[query] |= result
@@ -197,8 +197,9 @@ class Bot
             text: "#{video.title}\n#{video.channel}\n#{video.url}",
             reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(
               inline_keyboard: [[
-                Telegram::Bot::Types::InlineKeyboardButton.new(text: 'Interest',
-                                                               callback_data: "add #{video.id} #{query}"),
+                Telegram::Bot::Types::InlineKeyboardButton.new(
+                  text: 'Interest', callback_data: "add #{video.id} #{query}"
+                ),
                 Telegram::Bot::Types::InlineKeyboardButton.new(
                   text: 'Bye', callback_data: 'discard'
                 )
@@ -234,10 +235,25 @@ class Bot
       JSON.dump(
         {
           subs: subs,
-          pre_results: pre_results
+          pre_results: pre_results,
+          last_time: last_time
         }, file
       )
     end
+  end
+
+  def restore
+    restored = JSON.parse(File.read('subscriptions.json'))
+    restored['subs'].each_key do |id|
+      subs[id.to_i] = restored['subs'][id]
+    end
+    @pre_results = restored['pre_results']
+    pre_results.each_value do |r|
+      r.map! do |v|
+        YouTube::Video.new(v['id'], v['title'], v['channel'])
+      end
+    end
+    @last_time = DateTime.parse(restored['last_time'])
   end
 
   def log(obj)
@@ -246,6 +262,13 @@ class Bot
       puts "(M@#{obj.chat.id}) #{obj.from.username}: #{obj.text} [#{Time.now.strftime('%H:%M')}]"
     when Telegram::Bot::Types::CallbackQuery
       puts "(C@#{obj.message.chat.id}) #{obj.from.username}: #{obj.data} [#{Time.now.strftime('%H:%M')}]"
+    when Exception
+      puts obj.full_message
+      begin
+        bot.api.send_message(chat_id: Config::ADMIN_CHAT_ID, text: obj.full_message)
+      rescue e
+        puts e.full_message
+      end
     else
       puts "#{obj} [#{Time.now.strftime('%H:%M')}]"
     end
