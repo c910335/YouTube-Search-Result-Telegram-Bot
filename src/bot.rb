@@ -1,5 +1,5 @@
 class Bot
-  attr_reader :bot, :youtube, :subs, :pre_results, :new_results, :last_time
+  attr_reader :bot, :youtube, :subs, :pre_results, :new_results, :last_time, :blocks
 
   def self.start
     new.start
@@ -8,6 +8,7 @@ class Bot
   def initialize
     @youtube = YouTube.new
     @subs = {}
+    @blocks = {}
     if File.exist?('subscriptions.json')
       restore
     else
@@ -38,9 +39,21 @@ class Bot
                        reply_markup: Telegram::Bot::Types::ForceReply.new(force_reply: true))
             when '/list'
               if (user_subs = subs[msg.chat.id]) && !user_subs.empty?
-                reply_to(msg, "You currently subscribe to\n#{user_subs.keys.join("\n")}")
+                reply_to(msg, "You are subscribing to\n#{user_subs.keys.join("\n")}")
               else
                 reply_to(msg, 'Subscription not found.')
+              end
+            when '/block'
+              reply_to(msg, 'Please enter the channel id you would like to block.',
+                       reply_markup: Telegram::Bot::Types::ForceReply.new(force_reply: true))
+            when '/unblock'
+              reply_to(msg, 'Please enter the channel id you would like to unblock.',
+                       reply_markup: Telegram::Bot::Types::ForceReply.new(force_reply: true))
+            when '/blocks'
+              if (user_blocks = blocks[msg.chat.id]) && !user_blocks.empty?
+                reply_to(msg, "You are blocking\n#{user_blocks.to_a.join("\n")}")
+              else
+                reply_to(msg, "You aren't blocking any channel.")
               end
             when '/update'
               update(clear: false)
@@ -58,6 +71,18 @@ class Bot
                     reply_to(msg, "Unsubscribed to \"#{msg.text}\" successfully.")
                   else
                     reply_to(msg, 'Subscription not found.')
+                  end
+                when 'Please enter the channel id you would like to block.'
+                  if block(msg.text, msg.chat.id)
+                    reply_to(msg, "The channel \"#{msg.text}\" has been blocked.")
+                  else
+                    reply_to(msg, 'You have already blocked the channel.')
+                  end
+                when 'Please enter the channel id you would like to unblock.'
+                  if unblock(msg.text, msg.chat.id)
+                    reply_to(msg, "The channel \"#{msg.text}\" has been unblocked.")
+                  else
+                    reply_to(msg, 'Channel not found.')
                   end
                 end
               end
@@ -191,7 +216,10 @@ class Bot
       user_subs.each_key do |query|
         next unless result = new_results[query]
 
+        user_blocks = blocks[chat_id]
         result.each do |video|
+          next if user_blocks.include? video.channel_id
+
           bot.api.send_message(
             chat_id: chat_id,
             text: "#{video.title}\n#{video.duration}\n#{video.channel_title}\n#{video.url}",
@@ -230,13 +258,32 @@ class Bot
     true
   end
 
+  def block(channel_id, chat_id)
+    blocks[chat_id] ||= Set.new
+    return false if blocks[chat_id].include?(channel_id)
+
+    blocks[chat_id].add(channel_id)
+    save
+    true
+  end
+
+  def unblock(channel_id, chat_id)
+    blocks[chat_id] ||= {}
+    return false unless blocks[chat_id].include?(channel_id)
+
+    blocks[chat_id].delete(channel_id)
+    save
+    true
+  end
+
   def save
     File.open('subscriptions.json', 'w') do |file|
       JSON.dump(
         {
           subs: subs,
           pre_results: pre_results,
-          last_time: last_time
+          last_time: last_time,
+          blocks: blocks
         }, file
       )
     end
@@ -244,8 +291,8 @@ class Bot
 
   def restore
     restored = JSON.parse(File.read('subscriptions.json'))
-    restored['subs'].each_key do |id|
-      subs[id.to_i] = restored['subs'][id]
+    restored['subs'].each_pair do |id, user_subs|
+      subs[id.to_i] = user_subs
     end
     @pre_results = restored['pre_results']
     pre_results.each_value do |r|
@@ -254,6 +301,9 @@ class Bot
       end
     end
     @last_time = DateTime.parse(restored['last_time'])
+    restored['blocks'].each_pair do |id, user_blocks|
+      blocks[id.to_i] = Set.new(user_blocks)
+    end
   end
 
   def log(obj)
