@@ -8,13 +8,26 @@ class YouTube
   end
 
   def search(q, after)
-    service.list_searches(
+    ids = service.list_searches(
       'snippet',
       max_results: 50,
       q: q,
       type: 'video',
       published_after: after
-    ).items.map { |video| Video.new(video.id.video_id, video.snippet.title, video.snippet.channel_title) }
+    ).items.map { |video| video.id.video_id }
+
+    service.list_videos(
+      'snippet,contentDetails',
+      id: ids.join(',')
+    ).items.map do |video|
+      Video.new(
+        video.id,
+        video.snippet.title,
+        video.snippet.channel_id,
+        video.snippet.channel_title,
+        video.content_details.duration.delete_prefix('PT').downcase
+      )
+    end
   end
 
   def new_playlist(username, query)

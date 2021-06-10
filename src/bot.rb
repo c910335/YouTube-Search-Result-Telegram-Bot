@@ -194,7 +194,7 @@ class Bot
         result.each do |video|
           bot.api.send_message(
             chat_id: chat_id,
-            text: "#{video.title}\n#{video.channel}\n#{video.url}",
+            text: "#{video.title}\n#{video.duration}\n#{video.channel_title}\n#{video.url}",
             reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(
               inline_keyboard: [[
                 Telegram::Bot::Types::InlineKeyboardButton.new(
@@ -250,7 +250,7 @@ class Bot
     @pre_results = restored['pre_results']
     pre_results.each_value do |r|
       r.map! do |v|
-        YouTube::Video.new(v['id'], v['title'], v['channel'])
+        YouTube::Video.new(v['id'], v['title'], v['channel_id'], v['channel_title'], v['duration'])
       end
     end
     @last_time = DateTime.parse(restored['last_time'])

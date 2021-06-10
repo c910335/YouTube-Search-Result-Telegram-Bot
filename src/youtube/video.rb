@@ -1,11 +1,13 @@
 class YouTube
   class Video
-    attr_reader :id, :title, :channel
+    attr_reader :id, :title, :channel_id, :channel_title, :duration
 
-    def initialize(id, title, channel)
+    def initialize(id, title, channel_id, channel_title, duration)
       @id = id
       @title = title
-      @channel = channel
+      @channel_id = channel_id
+      @channel_title = channel_title
+      @duration = duration
     end
 
     def url
@@ -16,7 +18,9 @@ class YouTube
       {
         id: id,
         title: title,
-        channel: channel
+        channel_id: channel_id,
+        channel_title: channel_title,
+        duration: duration
       }.to_json(*args)
     end
 
