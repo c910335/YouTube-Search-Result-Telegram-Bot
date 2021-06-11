@@ -28,6 +28,13 @@ class Bot
           log msg
           case msg
           when Telegram::Bot::Types::Message
+            if Config::CHAT_ID_WHITELIST && !Config::CHAT_ID_WHITELIST.include?(msg.chat.id)
+              reply_to(
+                msg,
+                "You are not permitted to use this bot.\nAsk @#{Config::ADMIN_USERNAME} for the permission."
+              )
+              next
+            end
             case msg.text
             when '/start'
               reply_to(msg, 'hello, world')
