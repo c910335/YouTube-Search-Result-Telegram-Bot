@@ -222,7 +222,7 @@ class Bot
 
           bot.api.send_message(
             chat_id: chat_id,
-            text: "#{video.title}\n#{video.duration}\n#{video.channel_title}\n#{video.url}",
+            text: "#{video.title}\n#{video.duration}\n#{video.channel_title} (#{video.channel_id})\n#{video.url}",
             reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(
               inline_keyboard: [[
                 Telegram::Bot::Types::InlineKeyboardButton.new(
