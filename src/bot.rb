@@ -316,7 +316,7 @@ class Bot
       puts obj.full_message
       begin
         bot.api.send_message(chat_id: Config::ADMIN_CHAT_ID, text: obj.full_message)
-      rescue e
+      rescue StandardError => e
         puts e.full_message
       end
     else
