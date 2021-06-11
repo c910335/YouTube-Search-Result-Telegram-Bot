@@ -63,7 +63,7 @@ class Bot
                 reply_to(msg, "You aren't blocking any channel.")
               end
             when '/update'
-              update(clear: false)
+              update(clear: false) if msg.chat.id == Config::ADMIN_CHAT_ID
             else
               if replied = msg.reply_to_message
                 case replied.text
