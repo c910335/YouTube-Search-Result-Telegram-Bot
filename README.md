@@ -44,6 +44,9 @@ ruby main.rb
 - `/sub`: Subscribe to the search results of a keyword
 - `/unsub`: Unsubscribe to a keyword
 - `/list`: List your subscriptions
+- `/block`: Block a channel
+- `/unblock`: Unblock a channel
+- `/blocks`: List blocked channels
 
 ## Contributing
 
