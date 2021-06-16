@@ -73,6 +73,15 @@ class YouTube
     nil
   end
 
+  def channels(channel_ids)
+    service.list_channels(
+      'id,snippet',
+      id: channel_ids.join(',')
+    ).items.map do |channel|
+      Channel.new(channel.id, channel.snippet.title)
+    end
+  end
+
   def auth
     user_id = 'ytsrtb'
     uri = 'urn:ietf:wg:oauth:2.0:oob'

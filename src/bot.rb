@@ -58,7 +58,9 @@ class Bot
                        reply_markup: Telegram::Bot::Types::ForceReply.new(force_reply: true))
             when '/blocks'
               if (user_blocks = blocks[msg.chat.id]) && !user_blocks.empty?
-                reply_to(msg, "You are blocking\n#{user_blocks.to_a.join("\n")}")
+                reply_to(msg, "You are blocking\n#{youtube.channels(user_blocks.to_a).map do |channel|
+                                                     "#{channel.title} (#{channel.id})"
+                                                   end.join("\n")}")
               else
                 reply_to(msg, "You aren't blocking any channel.")
               end

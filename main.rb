@@ -10,6 +10,7 @@ require 'active_support/core_ext/numeric/time'
 require './config'
 require './src/set'
 require './src/youtube/video'
+require './src/youtube/channel'
 require './src/youtube'
 require './src/bot'
 
