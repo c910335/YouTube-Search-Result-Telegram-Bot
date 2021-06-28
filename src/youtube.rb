@@ -27,7 +27,7 @@ class YouTube
         video.snippet.channel_title,
         video.content_details.duration.delete_prefix('PT').downcase
       )
-    end
+    end.reject { |video| video.duration == 'p0d' }
   end
 
   def new_playlist(username, query)
