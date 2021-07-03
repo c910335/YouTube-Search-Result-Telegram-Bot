@@ -191,7 +191,10 @@ class Bot
 
         begin
           update
-        rescue e
+        rescue Signet::AuthorizationError => e
+          log e
+          exit
+        rescue StandardError => e
           log e
         end
       end
