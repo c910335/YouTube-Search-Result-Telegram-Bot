@@ -8,14 +8,33 @@ class YouTube
   end
 
   def search(q, after)
-    ids = service.list_searches(
+    videos = []
+
+    res = service.list_searches(
       'snippet',
       max_results: 50,
       q: q,
       type: 'video',
       published_after: after
-    ).items.map { |video| video.id.video_id }
+    )
+    videos += list_videos(res.items.map { |video| video.id.video_id })
 
+    while res.next_page_token
+      res = service.list_searches(
+        'snippet',
+        max_results: 50,
+        q: q,
+        type: 'video',
+        published_after: after,
+        page_token: res.next_page_token
+      )
+      videos += list_videos(res.items.map { |video| video.id.video_id })
+    end
+
+    videos
+  end
+
+  def list_videos(ids)
     service.list_videos(
       'snippet,contentDetails',
       id: ids.join(',')

@@ -24,6 +24,10 @@ class YouTube
       }.to_json(*args)
     end
 
+    def to_s
+      "#{title} (#{id})"
+    end
+
     def eql?(other)
       id == other.id
     end
