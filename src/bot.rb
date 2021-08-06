@@ -59,8 +59,8 @@ class Bot
             when '/blocks'
               if (user_blocks = blocks[msg.chat.id]) && !user_blocks.empty?
                 reply_to(msg, "You are blocking\n#{youtube.channels(user_blocks.to_a).map do |channel|
-                                                     "#{channel.title} (#{channel.id})"
-                                                   end.join("\n")}")
+                  "#{channel.title} (#{channel.id})"
+                end.join("\n")}")
               else
                 reply_to(msg, "You aren't blocking any channel.")
               end
@@ -97,57 +97,59 @@ class Bot
               end
             end
           when Telegram::Bot::Types::CallbackQuery
-            begin
-              case msg.data
-              when /^add \S+ .+/
-                add_video(msg)
-              when 'discard'
-                bot.api.edit_message_text(
-                  chat_id: msg.message.chat.id,
-                  message_id: msg.message.message_id,
-                  text: msg.message.text,
-                  disable_web_page_preview: true,
-                  reply_markup: nil
+            case msg.data
+            when /^add \S+ .+/
+              add_video(msg)
+            when 'discard'
+              bot.api.edit_message_text(
+                chat_id: msg.message.chat.id,
+                message_id: msg.message.message_id,
+                text: msg.message.text,
+                disable_web_page_preview: true,
+                reply_markup: nil
+              )
+            when /^clear .+/
+              query = msg.data[/^clear (.+)$/, 1]
+              bot.api.send_message(
+                chat_id: msg.message.chat.id,
+                text: "Are you sure to clear the \"#{query}\" playlist?",
+                reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(
+                  inline_keyboard: [[
+                    Telegram::Bot::Types::InlineKeyboardButton.new(
+                      text: 'Clear', callback_data: "force_clear #{query}"
+                    ),
+                    Telegram::Bot::Types::InlineKeyboardButton.new(
+                      text: 'No', callback_data: 'no_clear'
+                    )
+                  ]]
                 )
-              when /^clear .+/
-                query = msg.data[/^clear (.+)$/, 1]
-                bot.api.send_message(
-                  chat_id: msg.message.chat.id,
-                  text: "Are you sure to clear the \"#{query}\" playlist?",
-                  reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(
-                    inline_keyboard: [[
-                      Telegram::Bot::Types::InlineKeyboardButton.new(
-                        text: 'Clear', callback_data: "force_clear #{query}"
-                      ),
-                      Telegram::Bot::Types::InlineKeyboardButton.new(
-                        text: 'No', callback_data: 'no_clear'
-                      )
-                    ]]
-                  )
-                )
-              when /^force_clear .+/
-                query = msg.data[/^force_clear (.+)$/, 1]
-                bot.api.edit_message_text(
-                  chat_id: msg.message.chat.id,
-                  message_id: msg.message.message_id,
-                  text: "The \"#{query}\" playlist has been cleared.",
-                  reply_markup: nil
-                )
-                subs[msg.message.chat.id][query] =
-                  youtube.clear_playlist(subs[msg.message.chat.id][query], msg.from.username, query)
-                save
-              when 'no_clear'
-                bot.api.delete_message(chat_id: msg.message.chat.id, message_id: msg.message.message_id)
-              end
-              bot.api.answer_callback_query(callback_query_id: msg.id)
-            rescue Telegram::Bot::Exceptions::ResponseError, NoMethodError, Signet::AuthorizationError => e
-              log e
+              )
+            when /^force_clear .+/
+              query = msg.data[/^force_clear (.+)$/, 1]
+              bot.api.edit_message_text(
+                chat_id: msg.message.chat.id,
+                message_id: msg.message.message_id,
+                text: "The \"#{query}\" playlist has been cleared.",
+                reply_markup: nil
+              )
+              subs[msg.message.chat.id][query] =
+                youtube.clear_playlist(subs[msg.message.chat.id][query], msg.from.username, query)
+              save
+            when 'no_clear'
+              bot.api.delete_message(chat_id: msg.message.chat.id, message_id: msg.message.message_id)
             end
+            bot.api.answer_callback_query(callback_query_id: msg.id)
           end
         end
+      rescue Telegram::Bot::Exceptions::ResponseError, NoMethodError => e
+        log e
+        sleep 20
+        retry
       rescue Faraday::ConnectionFailed => e
         log e
         retry
+      rescue Signet::AuthorizationError => e
+        exit
       end
     end
   end
@@ -230,7 +232,7 @@ class Bot
 
         user_blocks = blocks[chat_id]
         result.each do |video|
-          next if user_blocks.include? video.channel_id
+          next if user_blocks&.include?(video.channel_id)
 
           bot.api.send_message(
             chat_id: chat_id,

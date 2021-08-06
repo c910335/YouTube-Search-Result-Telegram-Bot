@@ -93,23 +93,26 @@ class YouTube
   end
 
   def channels(channel_ids)
-    service.list_channels(
-      'id,snippet',
-      id: channel_ids.join(',')
-    ).items.map do |channel|
-      Channel.new(channel.id, channel.snippet.title)
-    end
+    channel_ids.each_slice(50).map do |ids|
+      service.list_channels(
+        'id,snippet',
+        id: ids.join(',')
+      ).items.map do |channel|
+        Channel.new(channel.id, channel.snippet.title)
+      end
+    end.flatten
   end
 
   def auth
     user_id = 'ytsrtb'
-    uri = 'urn:ietf:wg:oauth:2.0:oob'
-    scope = 'https://www.googleapis.com/auth/youtube.force-ssl'
-    client_id = Google::Auth::ClientId.from_file('./client_secret.json')
-    token_store = Google::Auth::Stores::FileTokenStore.new(file: 'tokens.yml')
-    authorizer = Google::Auth::UserAuthorizer.new(client_id, scope, token_store)
+    authorizer = Google::Auth::UserAuthorizer.new(
+      Google::Auth::ClientId.from_file('./client_secret.json'),
+      'https://www.googleapis.com/auth/youtube.force-ssl',
+      Google::Auth::Stores::FileTokenStore.new(file: 'tokens.yml')
+    )
     credentials = authorizer.get_credentials(user_id)
     if credentials.nil?
+      uri = 'urn:ietf:wg:oauth:2.0:oob'
       url = authorizer.get_authorization_url(base_url: uri)
       puts "Open #{url} in your browser and enter the resulting code:"
       code = gets
