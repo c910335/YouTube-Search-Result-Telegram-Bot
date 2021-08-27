@@ -2,6 +2,7 @@
 require 'rubygems'
 require 'bundler/setup'
 require 'json'
+require 'digest/sha1'
 require 'telegram/bot'
 require 'googleauth'
 require 'googleauth/stores/file_token_store'

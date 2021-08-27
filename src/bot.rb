@@ -1,5 +1,5 @@
 class Bot
-  attr_reader :bot, :youtube, :subs, :pre_results, :new_results, :last_time, :blocks
+  attr_reader :bot, :youtube, :subs, :pre_results, :new_results, :last_time, :blocks, :query_from_id
 
   def self.start
     new.start
@@ -16,6 +16,11 @@ class Bot
       @last_time = DateTime.now
     end
     @new_results = {}
+    @query_from_id = {}
+    queries.each do |q|
+      query_from_id[q] = q
+      query_from_id[Digest::SHA1.base64digest(q)] = q
+    end
   end
 
   def start
@@ -109,14 +114,14 @@ class Bot
                 reply_markup: nil
               )
             when /^clear .+/
-              query = msg.data[/^clear (.+)$/, 1]
+              query = query_from_id[msg.data[/^clear (.+)$/, 1]]
               bot.api.send_message(
                 chat_id: msg.message.chat.id,
                 text: "Are you sure to clear the \"#{query}\" playlist?",
                 reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(
                   inline_keyboard: [[
                     Telegram::Bot::Types::InlineKeyboardButton.new(
-                      text: 'Clear', callback_data: "force_clear #{query}"
+                      text: 'Clear', callback_data: "force_clear #{Digest::SHA1.base64digest(query)}"
                     ),
                     Telegram::Bot::Types::InlineKeyboardButton.new(
                       text: 'No', callback_data: 'no_clear'
@@ -125,7 +130,7 @@ class Bot
                 )
               )
             when /^force_clear .+/
-              query = msg.data[/^force_clear (.+)$/, 1]
+              query = query_from_id[msg.data[/^force_clear (.+)$/, 1]]
               bot.api.edit_message_text(
                 chat_id: msg.message.chat.id,
                 message_id: msg.message.message_id,
@@ -138,17 +143,17 @@ class Bot
             when 'no_clear'
               bot.api.delete_message(chat_id: msg.message.chat.id, message_id: msg.message.message_id)
             end
-            bot.api.answer_callback_query(callback_query_id: msg.id)
           end
         end
       rescue Telegram::Bot::Exceptions::ResponseError, NoMethodError => e
         log e
-        sleep 20
+        sleep 5
         retry
       rescue Faraday::ConnectionFailed => e
         log e
         retry
       rescue Signet::AuthorizationError => e
+        log e
         exit
       end
     end
@@ -156,7 +161,7 @@ class Bot
 
   def add_video(cq)
     video_id = cq.data[/^add (\S+) .+$/, 1]
-    query = cq.data[/^add \S+ (.+)$/, 1]
+    query = query_from_id[cq.data[/^add \S+ (.+)$/, 1]]
     playlist_id = subs[cq.message.chat.id][query]
     if youtube.insert_video(playlist_id, video_id)
       bot.api.edit_message_text(
@@ -170,7 +175,7 @@ class Bot
               text: 'Watch Playlist', url: "https://youtube.com/playlist?list=#{playlist_id}"
             ),
             Telegram::Bot::Types::InlineKeyboardButton.new(
-              text: 'Clear Playlist', callback_data: "clear #{query}"
+              text: 'Clear Playlist', callback_data: "clear #{Digest::SHA1.base64digest(query)}"
             )
           ]]
         )
@@ -205,7 +210,6 @@ class Bot
 
   def update(clear: true)
     log 'Searching for new videos.'
-    queries = subs.values.map(&:keys).flatten.uniq
     @pre_results = new_results if clear
     @new_results = {}
     queries.each do |query|
@@ -240,7 +244,7 @@ class Bot
             reply_markup: Telegram::Bot::Types::InlineKeyboardMarkup.new(
               inline_keyboard: [[
                 Telegram::Bot::Types::InlineKeyboardButton.new(
-                  text: 'Interest', callback_data: "add #{video.id} #{query}"
+                  text: 'Interest', callback_data: "add #{video.id} #{Digest::SHA1.base64digest(query)}"
                 ),
                 Telegram::Bot::Types::InlineKeyboardButton.new(
                   text: 'Bye', callback_data: 'discard'
@@ -258,6 +262,8 @@ class Bot
     return false if subs[chat_id][query]
 
     subs[chat_id][query] = youtube.new_playlist(username, query)
+    query_from_id[query] = query
+    query_from_id[Digest::SHA1.base64digest(query)] = query
     save
     true
   end
@@ -268,6 +274,8 @@ class Bot
 
     youtube.delete_playlist(playlist_id)
     subs[chat_id].delete(query)
+    query_from_id.delete(query)
+    query_from_id.delete(Digest::SHA1.base64digest(query))
     save
     true
   end
@@ -288,6 +296,10 @@ class Bot
     blocks[chat_id].delete(channel_id)
     save
     true
+  end
+
+  def queries
+    subs.values.map(&:keys).flatten.uniq
   end
 
   def save
