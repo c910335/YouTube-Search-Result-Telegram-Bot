@@ -24,10 +24,10 @@ cp config.sample.rb config.rb
 vim config.rb
 ```
 
-4. Download your `client_secrets.json` file from Google Cloud Platform.
+4. Download your `client_secret.json` file from Google Cloud Platform.
 
 ```sh
-cp ~/Downloads/your_client_secrets.json client_secrets.json
+cp ~/Downloads/your_client_secret.json client_secret.json
 ```
 
 ## Usage
